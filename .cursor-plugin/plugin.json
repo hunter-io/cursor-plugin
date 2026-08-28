@@ -1,0 +1,26 @@
+{
+  "name": "hunter",
+  "displayName": "Hunter",
+  "version": "0.1.0",
+  "description": "Find and verify professional email addresses, search contacts by domain, enrich company and person data, organize leads and lists, run outreach sequences, and push to your CRM -- directly in Cursor.",
+  "author": {
+    "name": "Hunter.io",
+    "email": "support@hunter.io"
+  },
+  "homepage": "https://hunter.io",
+  "repository": "https://github.com/hunter-io/hunter",
+  "license": "MIT",
+  "keywords": ["hunter", "email", "leads", "b2b", "prospecting", "sales", "enrichment", "verification", "sequences", "outreach", "crm", "mcp"],
+  "logo": "assets/logo.svg",
+  "variables": {
+    "type": "object",
+    "properties": {
+      "HUNTER_API_KEY": {
+        "type": "string",
+        "title": "Hunter API key",
+        "description": "Your Hunter API key. Create one at https://hunter.io/api-keys. Cursor sends it as X-API-Key to mcp.hunter.io."
+      }
+    },
+    "required": ["HUNTER_API_KEY"]
+  }
+}

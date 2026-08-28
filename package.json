@@ -1,0 +1,13 @@
+{
+  "name": "@hunter-io/cursor-plugin",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Hunter Cursor marketplace plugin (MCP + job-named skills)",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
