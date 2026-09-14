@@ -73,7 +73,7 @@ Cursor will chain Discover -> Domain Search -> Email Verifier, confirming credit
 
 > "Add my fintech CTO list to a new sequence with a 3-day follow-up, then start it."
 
-Cursor will use Build Sequences to create the sequence, add a follow-up step and message template, and add recipients from your list. Because the introduction email (step 0) has no API yet, it points you to the Hunter dashboard to write it, then starts the sequence once it's authored -- confirming before any email goes out.
+Cursor will use Build Sequences to create the sequence, add a follow-up step and message template, and add recipients from your list. The introduction email (step 0) is created empty, so it writes its subject and body with Update-Sequence-Follow-Up, then starts the sequence -- confirming before any email goes out. Nothing here needs the dashboard, as long as the sending inbox is already connected.
 
 ## How finding emails works
 

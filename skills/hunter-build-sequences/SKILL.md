@@ -5,7 +5,7 @@ description: Builds and runs email outreach sequences end to end — create a se
 
 # Build Sequences
 
-Create, configure, and run Hunter email sequences from chat: create the sequence, add follow-up steps and message templates, add recipients, launch, and read stats. **One current limitation:** the sequence's introduction email (step 0) has no API yet, so its subject and body must be written once in the Hunter dashboard before the sequence can start.
+Create, configure, and run Hunter email sequences from chat: create the sequence, write the introduction email, add follow-up steps and message templates, add recipients, launch, and read stats. Step authoring never needs the dashboard. **Connecting a sending inbox still does** — the API only attaches an account that is already connected, so check `List-Email-Accounts` before promising a fully in-chat launch.
 
 ## Examples
 
@@ -34,9 +34,9 @@ Create, configure, and run Hunter email sequences from chat: create the sequence
 ### Step 2: Configure steps and templates
 
 - **Message templates** — `Create-Message-Template` (requires a `name` and `body`; `subject` optional), reusable across sequences. `List-Message-Templates` to reuse an existing one (`Get-Message-Template` to inspect); `Update-Message-Template` to edit.
-- **Follow-up steps** — `Create-Sequence-Follow-Up` to add each step (delay + template). `List-Sequence-Follow-Ups` to review the cadence (`Get-Sequence-Follow-Up` for one step); `Delete-Sequence-Follow-Up` removes a step, but **only the last step** can be deleted — to change an earlier one, delete from the end back down to it and recreate the rest (confirm first). A sequence holds at most **6 steps total** — the step-0 introduction plus up to 5 follow-ups — so longer drips aren't possible.
+- **Follow-up steps** — `Create-Sequence-Follow-Up` to append each new step (delay + template). `List-Sequence-Follow-Ups` to review the cadence (`Get-Sequence-Follow-Up` for one step). `Update-Sequence-Follow-Up` rewrites an existing step in place — subject, body, `wait_days`, or `message_format`. Two side effects to surface, both Hunter-side and neither undoable from chat: a **subject** edit also rewrites every later step still holding the old subject verbatim (and regenerates their pending messages on a started sequence) — including steps appended with no subject of their own, which is the normal build order — so always re-read the step list afterwards and report which other steps moved; and switching a step from html to **text** makes Hunter convert the stored body (images dropped, links flattened, HTML stripped) even if you send no `body`, so confirm that before doing it. `Delete-Sequence-Follow-Up` removes a step, but **only the last step** can be deleted and never step 0, so prefer an update over delete + recreate. A sequence holds at most **6 steps total** — the step-0 introduction plus up to 5 follow-ups — so longer drips aren't possible.
 
-Use `{{first_name}}`-style merge fields in templates, but each merge field must carry a **fallback value** — `Create-Sequence-Follow-Up` rejects bare variables, so ask for or generate fallback text for every variable. Follow-up steps (1 and up) are authored here, but the **introduction email (step 0)** cannot be filled via the API yet — its subject and body must be written in the Hunter dashboard before the sequence can start.
+Use `{{first_name}}`-style merge fields in templates, but each merge field must carry a **fallback value** — both `Create-Sequence-Follow-Up` and `Update-Sequence-Follow-Up` reject bare variables, so ask for or generate fallback text for every variable. The **introduction email (step 0)** is created empty by `Create-Sequence` and cannot be targeted by `Create-Sequence-Follow-Up`: get its id from `List-Sequence-Follow-Ups`, then write its subject and body with `Update-Sequence-Follow-Up`. The whole sequence can be authored this way, and launched too when a sending inbox is already connected.
 
 ### Step 3: Add recipients
 
@@ -46,7 +46,7 @@ Pull recipients from a leads list (`List-Leads` with `leads_list_id` — page th
 
 Before calling `Start-Sequence`, verify the launch preconditions and surface any gap instead of letting the start fail:
 
-- **Every follow-up step** has a resolved subject and a non-blank body, not only the introduction. Call `List-Sequence-Follow-Ups` and inspect **all** rows (page if needed). `Start-Sequence` validates every step; a missing/imported template can leave a later step blank even when step 0 is filled. If any step is blank, fix it (or write step 0 in the dashboard) before requesting launch confirmation. `Get-Sequence` only reports step counts, not contents.
+- **Every follow-up step** has a resolved subject and a non-blank body, not only the introduction. Call `List-Sequence-Follow-Ups` and inspect **all** rows (page if needed). `Start-Sequence` validates every step; a missing/imported template can leave a later step blank even when step 0 is filled. If any step is blank, fill it in with `Update-Sequence-Follow-Up` — including step 0 — before requesting launch confirmation. `Get-Sequence` only reports step counts, not contents.
 - The sequence has a **sender attached** — the sender is a per-sequence field set via `email_account_ids` on `Create-Sequence` / `Update-Sequence`, not merely "some connected account." Use `List-Email-Accounts` / `Get-Email-Account` to inspect the attached account's live `sending_status`. Accept `active` or `warming` (`warming` can send at reduced volume). `paused` means disconnected — reconnect or attach a different account. `Start-Sequence` rejects disconnected accounts. Do not request launch confirmation while the sender is `paused`.
 - The sequence has **at least one recipient**. `Get-Sequence` exposes the recipient count; `Start-Sequence` rejects an empty recipient list with "Recipients need to be present." If the count is 0, send the user to Step 3 to add recipients and do not request launch confirmation yet.
 - The **schedule** on `Get-Sequence` may have null `days`, `time_start`, or `time_end` — that means the sequence **inherits the owner’s valid defaults**. Do not treat those raw nulls as empty/invalid or block `Start-Sequence`. Fail preflight only when `days` is present and empty, both times are present and `time_start` is not before `time_end`, or `start_at` is present and in the past. A past `start_at` or an inverted explicit window still fails start; fix those on the draft via `Update-Sequence`.
@@ -78,6 +78,7 @@ Confirm before any destructive, irreversible, or email-sending action — state 
 - `Remove-Sequence-Recipients` — echo how many recipients and from which sequence; max 50 per call, so batch larger removals in groups of 50 and report progress.
 - `Delete-Message-Template`, `Delete-Sequence-Follow-Up` — name what is being removed.
 - `Update-Message-Template` — overwrites a saved template's fields with no way to recover the old version; confirm before editing a reusable team template.
+- `Update-Sequence-Follow-Up` — overwrites a step's subject and body with no way to recover the previous copy; show the current wording and the replacement before writing. A **subject** change also propagates to later steps that still share the old subject, so name those steps in the confirmation, not just the one being edited. Filling in a blank step 0 overwrites nothing, so it needs no confirmation — but it still **propagates**: steps you appended without a subject of their own were stored empty, and authoring step 0 fills them all in. Re-read `List-Sequence-Follow-Ups` afterwards and report every step that changed.
 
 **Anything that can send email — confirm first.** `Start-Sequence`, `Resume-Sequence`, and `Add-Sequence-Recipients` on an already-started sequence all schedule real outbound email (Resume and Add-Recipients need no separate start call). Always confirm the recipient count and sending account before any of them.
 
@@ -87,7 +88,7 @@ Free — creating, configuring, and running sequences does not consume credits. 
 
 ## Important Notes
 
-- A sequence cannot start until the step-0 introduction email (subject + body, authored in the Hunter dashboard — no API yet), an **active or warming** sending account, a valid schedule, and at least one recipient are all in place. Check before calling `Start-Sequence`.
+- A sequence cannot start until the step-0 introduction email (subject + body, written with `Update-Sequence-Follow-Up`), an **active or warming** sending account, a valid schedule, and at least one recipient are all in place. Check before calling `Start-Sequence`.
 - Max 50 recipients per `Add-Sequence-Recipients` call — batch larger lists.
 - Message templates are reusable across sequences — prefer reusing over recreating.
 - `List-Email-Account-Sequences` shows which sequences a given sending account is running.
