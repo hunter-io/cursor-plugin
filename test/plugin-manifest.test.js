@@ -148,7 +148,8 @@ test("find-companies, domain-search, and prospect use hosted MCP names and unifi
   assert.match(domainSearch, /ceil\(limit \/ 10\)/)
 
   assert.match(discover, /does \*\*not\*\* return individual people/)
-  assert.match(discover, /Find-People` accepts `limit`\/`offset`/)
+  assert.match(discover, /page with `limit`\/`offset` \(max 100 per call\)/)
+  assert.doesNotMatch(discover, /no offset paging/)
   assert.match(discover, /`error` envelope/)
   assert.match(discover, /If the call succeeded and zero companies were returned/)
   assert.match(domainSearch, /Domain-Search-Found/)
