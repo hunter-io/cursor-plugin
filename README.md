@@ -1,35 +1,67 @@
 # Hunter for Cursor
 
-Find and verify professional email addresses, search contacts by domain, enrich company and person data, discover companies and people, organize leads and lists, run outreach sequences, and push to your CRM -- all through natural language in Cursor.
+Hunter MCP connects Cursor to your Hunter account through the Model Context Protocol (MCP). Ask in plain language, and the Cursor agent can find companies and people, find and verify email addresses, and enrich contacts. It can also organize leads and lists, run email sequences, and push leads to your CRM.
 
-The plugin connects to Hunter's hosted MCP server (`https://mcp.hunter.io/mcp`) and ships the same **13 job-named skills** as the Claude plugin (`/hunter:email-finder` there is `hunter-email-finder` here). Cursor does not namespace skills with the plugin name, so every skill id is `hunter-` plus the Claude slug.
+This plugin connects Cursor to the hosted Hunter MCP server. It ships the same **13 job-named skills** as the Claude plugin (`/hunter:email-finder` there is `hunter-email-finder` here). Cursor does not namespace skills with the plugin name, so every skill id is `hunter-` plus the Claude skill name.
 
-This is the package we will submit to the Cursor marketplace. Listing at `cursor.com/marketplace/hunter` is a separate publish step.
+- **Endpoint:** `https://mcp.hunter.io/mcp`
+- **Transport:** Streamable HTTP
+- **Authentication:** API key, sent in the `X-API-Key` header
+- **Plans:** every Hunter plan, including Free. The credits and limits of your plan apply.
 
-## Installation
+## Install
 
-Cursor loads plugins from `~/.cursor/plugins/local` until the marketplace listing exists:
+### From the Cursor marketplace
 
-```sh
-mkdir -p ~/.cursor/plugins/local
-ln -s /absolute/path/to/hunter/services/cursor-plugin ~/.cursor/plugins/local/hunter
+1. Open [Hunter in the Cursor marketplace](https://cursor.com/marketplace/cursor/hunter).
+2. Install the plugin.
+3. Add your Hunter API key, as the Authentication section below shows.
+
+### Without the plugin
+
+You can add the MCP server by hand. You get the Hunter tools, but not the skills.
+
+Add Hunter to your user-level `~/.cursor/mcp.json`, under `mcpServers`:
+
+```json
+{
+  "mcpServers": {
+    "hunter": {
+      "url": "https://mcp.hunter.io/mcp",
+      "headers": { "X-API-Key": "${env:HUNTER_API_KEY}" }
+    }
+  }
+}
 ```
 
-Reload the window (**Developer: Reload Window**), then open **Customize** and confirm MCP server **hunter** and the 13 `hunter-*` skills are listed.
+Cursor reads the key from the `HUNTER_API_KEY` environment variable. Set this variable in the environment that starts Cursor. Then reload Cursor.
+
+### Local install for development
+
+Cursor loads local plugins from `~/.cursor/plugins/local`:
+
+```sh
+git clone https://github.com/hunter-io/cursor-plugin.git
+mkdir -p ~/.cursor/plugins/local
+ln -s "$PWD/cursor-plugin" ~/.cursor/plugins/local/hunter
+```
+
+Reload the window (**Developer: Reload Window**). Then open **Customize** and make sure that the MCP server **hunter** and the 13 `hunter-*` skills show.
 
 ## Authentication
 
-Cursor talks to Hunter with an API key (`X-API-Key`). Claude and ChatGPT use OAuth; Cursor does not yet.
+Cursor connects to Hunter with an API key.
 
-1. Create a free Hunter account at [hunter.io/users/sign_up](https://hunter.io/users/sign_up) if you do not have one. The Free plan includes 50 credits a month — a search uses 1 credit and a verification 0.5.
+1. If you do not have a Hunter account, [sign up for free](https://hunter.io/users/sign_up).
 2. Create an API key at [hunter.io/api-keys](https://hunter.io/api-keys).
-3. After installing the plugin, open **Customize → Plugins → Hunter → Configure** and paste the key into **Hunter API key**.
+3. After you install the plugin, open **Customize → Plugins → Hunter → Configure**.
+4. Paste the key into **Hunter API key**.
 
-Never put the key in git. The plugin only declares the variable name (`HUNTER_API_KEY`).
+The plugin declares only the variable name, `HUNTER_API_KEY`. Never put the key in git.
 
 ## Skills
 
-Hunter provides 13 skills that trigger automatically based on your requests:
+Hunter provides 13 skills that start automatically when your request matches them:
 
 | Skill | What it does | Try saying... |
 |-------|-------------|---------------|
@@ -47,92 +79,323 @@ Hunter provides 13 skills that trigger automatically based on your requests:
 | `hunter-push-to-crm` | Sync leads to your connected CRM | "Push my Q2 leads to HubSpot" |
 | `hunter-check-usage` | See your plan and remaining credits | "How many credits do I have left?" |
 
-`mcp.json` already exposes the full hosted MCP server. Skills tell the agent **which job to run** and how to interpret results.
+`mcp.json` already exposes the full hosted MCP server. The skills tell the agent which job to run and how to read the results.
 
-## Example Workflows
+For a role such as VP of Sales, the skills use Domain Search with department and seniority filters, and take the email that it returns. Do not follow Domain Search with Email Finder for the same person. Domain Search already returns the email.
 
-### Sales Rep Researching a Target Account
+`hunter-discover` is free. `Find-People` returns counts of emails per company, not named people. To list the contacts, use `hunter-domain-search` or `hunter-prospecting`.
 
-> "Tell me about stripe.com, then find their VP of Sales and verify the email."
+## Tools
 
-Cursor will chain Company Enrichment -> Domain Search, then Email Verifier only if the returned status is unresolved (not already `valid` / `accept_all` / `invalid`). Do not follow Domain Search with Email Finder for a role such as VP of Sales — Domain Search already returns the email.
+The agent picks the tools from your request. You do not call them by name.
 
-### Founder Building an Outbound List
+Hunter asks you to confirm before it starts a sequence, pushes leads to a CRM, or deletes a sequence. It also asks before it adds recipients to a sequence that is already in progress.
 
-> "Find fintech startups in France with 50-200 employees, then get the CTOs' email addresses."
+Data Platform plans have no Discover or Sequences tools. `Find-Similar-Companies` is not on the Free plan.
 
-Cursor will use Discover to find companies, Domain Search to find contacts, and filter for CTOs.
+<!-- BEGIN GENERATED: mcp-tools:remote. Generated from the Hunter MCP server; do not edit by hand. -->
 
-### Marketer Finding Contacts for a Campaign
+The Data column says what a tool does:
 
-> "Find marketing leaders at SaaS companies in Germany. Verify all their emails."
+- **Reads**: changes nothing in your account.
+- **Paid lookup**: looks data up for credits and saves nothing.
+- **Paid, saves leads**: looks data up for credits. If the team has automatic lead saving (on by default, off on Data Platform plans), it also saves the result as a lead.
+- **Writes**: changes your account.
+- **Irreversible**: makes a change that cannot be undone, such as deleting data, sending emails, or pushing leads to a CRM.
 
-Cursor will chain Discover -> Domain Search -> Email Verifier, confirming credit usage before verification.
+### Discover
 
-### SDR Launching Outreach
+Search Hunter's company database from criteria or from a seed company. Count the contacts at each company, or list their job titles for free. Save a search and run it again later.
 
-> "Add my fintech CTO list to a new sequence with a 3-day follow-up, then start it."
+Try: "Find fintech companies in France with 50 to 200 employees."
 
-Cursor will use Build Sequences to create the sequence, add a follow-up step and message template, and add recipients from your list. The introduction email (step 0) is created empty, so it writes its subject and body with Update-Sequence-Follow-Up, then starts the sequence -- confirming before any email goes out. Nothing here needs the dashboard, as long as the sending inbox is already connected.
+| Tool | Title | Credits | Data |
+|---|---|---|---|
+| `Create-Saved-Search` | Create Saved Search | Free | Writes |
+| `Delete-Saved-Search` | Delete Saved Search | Free | Irreversible |
+| `Find-Companies` | Find Companies | Free | Reads |
+| `Find-People` | Count People at Companies | Free | Reads |
+| `Find-Similar-Companies` | Find Similar Companies | Free | Reads |
+| `Get-Saved-Search` | Get Saved Search | Free | Reads |
+| `List-Job-Titles` | List Job Titles (Free) | Free | Reads |
+| `List-Saved-Searches` | List Saved Searches | Free | Reads |
 
-## How finding emails works
+### Contact data
 
-The **`hunter-email-finder`** skill calls the MCP tool `Email-Finder` with `full_name` and `domain`.
+Get the email addresses at one domain or at up to 50 domains in one call, find the email address of one person, check deliverability, and count the addresses for a domain. To pick people by job title, list them for free, then get the email addresses of the ones you choose.
 
-- "Jane Smith at Stripe" → `full_name`: Jane Smith, `domain`: stripe.com
-- If you only have a job title ("the CTO of Notion"), use Domain Search with department/seniority filters and take the returned email. Do not chain Email Finder after that.
-- Costs 1 credit, charged only if an email is found.
+Try: "Find the email address of the head of marketing at notion.com and check that it is deliverable."
 
-## How verifying emails works
+| Tool | Title | Credits | Data |
+|---|---|---|---|
+| `Bulk-Domain-Search` | Bulk Domain Search | 1 credit per 10 emails returned for each company, rounded up | Paid lookup |
+| `Domain-Search` | Domain Search | 1 credit per 10 emails returned, rounded up | Paid lookup |
+| `Domain-Search-Found` | Domain Search (Found Emails Only) | 1 credit per 10 emails returned, rounded up | Paid lookup |
+| `Email-Count` | Email Count | Free | Reads |
+| `Email-Finder` | Email Finder | 1 credit | Paid, saves leads |
+| `Email-Verifier` | Email Verifier | 0.5 credit | Paid, saves leads |
+| `Preview-People` | Preview People (Free) | Free | Reads |
+| `Reveal-Emails` | Reveal Emails (1 Credit Each) | 1 credit per email | Paid lookup |
 
-The **`hunter-email-verifier`** skill calls the MCP tool `Email-Verifier` with the email address.
+### Enrichment
 
-| Status | Recommendation |
-|---|---|
-| `valid` | Safe to send (any score; 80+ is high confidence) |
-| `webmail: true` | Personal provider; usually `status: valid`. Can receive mail; not a company inbox. Billed as valid (0.5) |
-| `accept_all` | Catch-all server; the mailbox itself was not SMTP-checked |
-| `unknown` | Mail server was unclear |
-| `invalid` | Do not send |
-| `disposable` | Do not send; temporary address |
-| empty `data` / in-progress `meta.message` | Retry in a few seconds |
+Get profile data for a person (from an email address) or for a company (from a domain), or both in one call.
 
-Do not verify role/group addresses (`info@`, `support@`, `hello@`, etc.). Costs 0.5 credits per email, charged only for valid, invalid, or accept_all results.
+Try: "Tell me about stripe.com."
 
-## How discovering companies works
+| Tool | Title | Credits | Data |
+|---|---|---|---|
+| `Combined-Enrichment` | Combined Enrichment | 0.2 credit, with at least 1 credit left to start | Paid lookup |
+| `Company-Enrichment` | Company Enrichment | 0.2 credit, with at least 1 credit left to start | Paid lookup |
+| `Person-Enrichment` | Person Enrichment | 0.2 credit, with at least 1 credit left to start | Paid lookup |
 
-**`hunter-discover`** is free. `Find-Companies` returns matching companies. `Find-People` returns **counts** of personal vs generic emails per company — not named people. To list actual contacts, use **`hunter-domain-search`** (paid) or **`hunter-prospecting`**.
+### Leads
+
+Read, create, update, and delete leads. Find a lead by email address. Save a company to your account by its domain.
+
+Try: "Save these contacts as leads without overwriting existing ones."
+
+| Tool | Title | Credits | Data |
+|---|---|---|---|
+| `Create-Lead` | Create Lead | Free | Writes |
+| `Create-Lead-If-Missing` | Create Lead if Missing | Free | Writes |
+| `Create-Or-Update-Lead` | Create or Update Lead | Free | Irreversible |
+| `Delete-Lead` | Delete Lead | Free | Irreversible |
+| `Get-Lead` | Get Lead | Free | Reads |
+| `Lead-Exists` | Check if Lead Exists | Free | Reads |
+| `List-Leads` | List Leads | Free | Reads |
+| `Save-Company` | Save Company | Free | Writes |
+| `Update-Lead` | Update Lead | Free | Irreversible |
+
+### Leads lists
+
+Manage leads lists, merge two lists, mark favorites, and put lists in folders.
+
+Try: "Create a leads list called Q4 Outreach and add these contacts to it."
+
+| Tool | Title | Credits | Data |
+|---|---|---|---|
+| `Create-Leads-List` | Create Leads List | Free | Writes |
+| `Create-Leads-List-Folder` | Create Leads List Folder | Free | Writes |
+| `Delete-Leads-List` | Delete Leads List | Free | Irreversible |
+| `Delete-Leads-List-Folder` | Delete Leads List Folder | Free | Irreversible |
+| `Favorite-Leads-List` | Favorite Leads List | Free | Writes |
+| `Get-Leads-List` | Get Leads List | Free | Reads |
+| `List-Leads-List-Folders` | List Leads List Folders | Free | Reads |
+| `List-Leads-Lists` | List Leads Lists | Free | Reads |
+| `Merge-Leads-Lists` | Merge Leads Lists | Free | Irreversible |
+| `Unfavorite-Leads-List` | Unfavorite Leads List | Free | Writes |
+| `Update-Leads-List` | Update Leads List | Free | Irreversible |
+| `Update-Leads-List-Folder` | Update Leads List Folder | Free | Irreversible |
+
+### Tags and custom attributes
+
+Manage lead tags and apply them to leads. Manage the custom attributes that leads can have.
+
+Try: "Tag these leads as priority."
+
+| Tool | Title | Credits | Data |
+|---|---|---|---|
+| `Add-Tag-To-Lead` | Add Tag to Lead | Free | Writes |
+| `Create-Custom-Attribute` | Create Custom Attribute | Free | Writes |
+| `Create-Lead-Tag` | Create Lead Tag | Free | Writes |
+| `Delete-Custom-Attribute` | Delete Custom Attribute | Free | Irreversible |
+| `Delete-Lead-Tag` | Delete Lead Tag | Free | Irreversible |
+| `Get-Custom-Attribute` | Get Custom Attribute | Free | Reads |
+| `List-Custom-Attributes` | List Custom Attributes | Free | Reads |
+| `List-Lead-Tags` | List Lead Tags | Free | Reads |
+| `Remove-Tag-From-Lead` | Remove Tag from Lead | Free | Writes |
+| `Update-Custom-Attribute` | Update Custom Attribute | Free | Irreversible |
+| `Update-Lead-Tag` | Update Lead Tag | Free | Irreversible |
+
+### Company lists
+
+Manage static and dynamic company lists, add and remove companies, mark favorites, and put lists in folders.
+
+Try: "Save these companies to a Target Accounts list."
+
+| Tool | Title | Credits | Data |
+|---|---|---|---|
+| `Add-Company-To-List` | Add Company to List | Free | Writes |
+| `Create-Company-List` | Create Company List | Free | Writes |
+| `Create-Company-List-Folder` | Create Company List Folder | Free | Writes |
+| `Delete-Company-List` | Delete Company List | Free | Irreversible |
+| `Delete-Company-List-Folder` | Delete Company List Folder | Free | Irreversible |
+| `Favorite-Company-List` | Favorite Company List | Free | Writes |
+| `Get-Company-List` | Get Company List | Free | Reads |
+| `List-Company-List-Folders` | List Company List Folders | Free | Reads |
+| `List-Company-Lists` | List Company Lists | Free | Reads |
+| `Remove-Company-From-List` | Remove Company from List | Free | Writes |
+| `Unfavorite-Company-List` | Unfavorite Company List | Free | Writes |
+| `Update-Company-List` | Update Company List | Free | Irreversible |
+| `Update-Company-List-Folder` | Update Company List Folder | Free | Irreversible |
+
+### Bulk operations
+
+Move, copy, or delete many leads or companies in one call.
+
+Try: "Move every lead from the Q3 list to the Q4 list."
+
+| Tool | Title | Credits | Data |
+|---|---|---|---|
+| `Bulk-Copy-Companies` | Bulk Copy Companies | Free | Irreversible |
+| `Bulk-Delete-Companies` | Bulk Delete Companies | Free | Irreversible |
+| `Bulk-Delete-Leads` | Bulk Delete Leads | Free | Irreversible |
+| `Bulk-Move-Companies` | Bulk Move Companies | Free | Irreversible |
+| `Bulk-Move-Leads` | Bulk Move Leads | Free | Irreversible |
+
+### Sequences
+
+Create and configure email outreach sequences. Start, pause, resume, and archive them. Get open, click, and reply statistics.
+
+Try: "Create a 3-step sequence for my Q4 Outreach list, then start it."
+
+| Tool | Title | Credits | Data |
+|---|---|---|---|
+| `Archive-Sequence` | Archive Sequence | Free | Irreversible |
+| `Create-Sequence` | Create Sequence | Free | Writes |
+| `Delete-Sequence` | Delete Sequence | Free | Irreversible |
+| `Get-Sequence` | Get Sequence | Free | Reads |
+| `Get-Sequence-Stats` | Get Sequence Stats | Free | Reads |
+| `List-Sequences` | List Sequences | Free | Reads |
+| `Pause-Sequence` | Pause Sequence | Free | Writes |
+| `Resume-Sequence` | Resume Sequence | Free | Irreversible |
+| `Start-Sequence` | Start Sequence | Free | Irreversible |
+| `Update-Sequence` | Update Sequence | Free | Irreversible |
+
+### Sequence steps and recipients
+
+Write the email steps of a sequence, including A/B test variants. Add recipients to a sequence and remove them.
+
+Try: "Add a follow-up email 3 days after the first one."
+
+| Tool | Title | Credits | Data |
+|---|---|---|---|
+| `Add-Sequence-Recipients` | Add Sequence Recipients | Free | Irreversible |
+| `Create-Sequence-Follow-Up` | Create Sequence Follow-Up | Free | Writes |
+| `Delete-Sequence-Follow-Up` | Delete Sequence Follow-Up | Free | Irreversible |
+| `Get-Sequence-Follow-Up` | Get Sequence Follow-Up | Free | Reads |
+| `List-Sequence-Follow-Ups` | List Sequence Follow-Ups | Free | Reads |
+| `List-Sequence-Recipients` | List Sequence Recipients | Free | Reads |
+| `Remove-Sequence-Recipients` | Remove Sequence Recipients | Free | Irreversible |
+| `Update-Sequence-Follow-Up` | Update Sequence Follow-Up | Free | Irreversible |
+
+### Message templates
+
+Manage reusable email templates.
+
+Try: "Save this email as a reusable template."
+
+| Tool | Title | Credits | Data |
+|---|---|---|---|
+| `Create-Message-Template` | Create Message Template | Free | Writes |
+| `Delete-Message-Template` | Delete Message Template | Free | Irreversible |
+| `Get-Message-Template` | Get Message Template | Free | Reads |
+| `List-Message-Templates` | List Message Templates | Free | Reads |
+| `Update-Message-Template` | Update Message Template | Free | Irreversible |
+
+### Email accounts
+
+Read the sending inboxes connected to Hunter and the sequences that each inbox sends.
+
+Try: "Which of my inboxes can send sequences?"
+
+| Tool | Title | Credits | Data |
+|---|---|---|---|
+| `Get-Email-Account` | Get Email Account | Free | Reads |
+| `List-Email-Account-Sequences` | List Sequences for Email Account | Free | Reads |
+| `List-Email-Accounts` | List Email Accounts | Free | Reads |
+
+### Integrations
+
+Read connected apps and their field mappings. Push leads to a connected CRM. Read and update webhooks.
+
+Try: "Push my Q4 Outreach list to HubSpot."
+
+| Tool | Title | Credits | Data |
+|---|---|---|---|
+| `Get-Connected-App` | Get Connected App | Free | Reads |
+| `List-Connected-Apps` | List Connected Apps | Free | Reads |
+| `List-Webhooks` | List Webhooks | Free | Reads |
+| `Push-Leads-To-CRM` | Push Leads to CRM | Free | Irreversible |
+| `Update-Webhook` | Update Webhook | Free | Irreversible |
+
+### Briefing and signals
+
+Say what is new in the account: signal events, this week's opportunities, and credits. Read the events, the opportunities and their people or companies, and the Monitored Signals.
+
+Try: "What is new in my Hunter account this week?"
+
+| Tool | Title | Credits | Data |
+|---|---|---|---|
+| `Get-Briefing` | Get Briefing | Free | Reads |
+| `Get-Opportunity-Results` | Get Opportunity Results | Free | Reads |
+| `List-Monitored-Signals` | List Monitored Signals | Free | Reads |
+| `List-Opportunities` | List Opportunities | Free | Reads |
+| `List-Signals` | List Signals | Free | Reads |
+
+### Account and API keys
+
+Read the plan, team, and credit usage. Manage the API keys of the connected user.
+
+Try: "How many credits do I have left?"
+
+| Tool | Title | Credits | Data |
+|---|---|---|---|
+| `Create-API-Key` | Create API Key | Free | Irreversible |
+| `Delete-API-Key` | Delete API Key | Free | Irreversible |
+| `Get-Account-Details` | Get Account Details | Free | Reads |
+| `Get-Usage` | Get Quota Usage | Free | Reads |
+| `List-API-Keys` | List API Keys | Free | Reads |
+
+### Planning and feedback
+
+Turn a prospecting request into an ordered tool plan. Report a problem with the API or the tools to Hunter.
+
+Try: "Plan a prospecting flow for CTOs at fintech startups in Europe."
+
+| Tool | Title | Credits | Data |
+|---|---|---|---|
+| `Plan-Prospecting-Flow` | Plan Prospecting Flow | Free | Reads |
+| `Report-API-Feedback` | Report API Feedback | Free | Writes |
+
+<!-- END GENERATED: mcp-tools:remote -->
 
 ## Credits
 
-| Operation | Credit cost |
-|-----------|------------|
-| Domain Search | 1 credit per 10 results (rounded up; only if emails are found) |
-| Email Finder | 1 credit (only if an email is found) |
-| Email Verifier | 0.5 credits (valid, invalid, or accept_all) |
-| Company / Person / Combined Enrichment | 0.2 credits on current plans (1 on a legacy two-bucket plan; only if data is found) |
-| **Discover** (`Find-Companies` / `Find-People`) | **Free** |
-| **Email Count** | **Free** |
-| **Leads, lists, sequences, CRM push, saved searches, usage** | **Free** |
+Hunter MCP uses the same credits as the Hunter web app and API. The Free plan includes 50 credits a month.
 
-Cursor will always confirm before running operations that consume credits in bulk, and before any destructive action (deleting leads or lists, or pushing to your CRM).
+<!-- BEGIN GENERATED: mcp-credits:remote. Generated from the Hunter MCP server; do not edit by hand. -->
 
-## Publish
+| Tool | Plans with one credit pool | Older plans with separate searches and verifications | Charged when |
+|---|---|---|---|
+| `Bulk-Domain-Search` | 1 credit per 10 emails returned for each company, rounded up | 1 search per 10 emails returned for each company, rounded up | Emails are found |
+| `Combined-Enrichment` | 0.2 credit, with at least 1 credit left to start | 1 search | Data is found |
+| `Company-Enrichment` | 0.2 credit, with at least 1 credit left to start | 1 search | Data is found |
+| `Domain-Search` | 1 credit per 10 emails returned, rounded up | 1 search per 10 emails returned, rounded up | Emails are found |
+| `Domain-Search-Found` | 1 credit per 10 emails returned, rounded up | 1 search per 10 emails returned, rounded up | Emails are found |
+| `Email-Finder` | 1 credit | 1 search | An email is found |
+| `Email-Verifier` | 0.5 credit | 1 verification | The result is valid, invalid or accept_all |
+| `Person-Enrichment` | 0.2 credit, with at least 1 credit left to start | 1 search | Data is found |
+| `Reveal-Emails` | 1 credit per email | 1 search per email | An email is revealed for the first time in the billing period |
 
-Submit the plugin at [cursor.com/marketplace/publish](https://cursor.com/marketplace/publish). Cursor reviews every listing. The public git URL is [`hunter-io/cursor-plugin`](https://github.com/hunter-io/cursor-plugin).
+Every other tool is free.
 
-On every push to `master` that touches this folder, `.github/workflows/plugin-sync.yml` mirrors `services/cursor-plugin/` onto that public repo (same job as Claude → [`hunter-io/claude-plugin`](https://github.com/hunter-io/claude-plugin) and ChatGPT → [`hunter-io/chatgpt-mcp`](https://github.com/hunter-io/chatgpt-mcp)). Edit here; do not push to the public repo by hand.
+<!-- END GENERATED: mcp-credits:remote -->
 
-Follow-ups (Linear HUN-22532 remaining done-when):
+## Troubleshooting
 
-- Official marketplace listing
-- OAuth install if Cursor adds HTTP MCP OAuth for this server
+- **Cursor finds no MCP server.** The server URL is wrong. It is usually a hunter.io page address, such as `https://hunter.io/api-documentation`. Replace it with `https://mcp.hunter.io/mcp`.
+- **A tool returns `401`.** The API key is missing or wrong. Make sure that the key in **Hunter API key**, or in `HUNTER_API_KEY`, matches a key at [hunter.io/api-keys](https://hunter.io/api-keys).
+- **The Hunter tools do not show.** Reload the window (**Developer: Reload Window**). Then start a new chat.
+- **A tool returns `quota_exceeded`.** You have no credits left, and a retry does not help. Credits renew at the start of the next billing period.
 
 ## Links
 
-- [Public git mirror](https://github.com/hunter-io/cursor-plugin)
-- [Hunter.io](https://hunter.io)
+- [Hunter in the Cursor marketplace](https://cursor.com/marketplace/cursor/hunter)
+- [Public repository](https://github.com/hunter-io/cursor-plugin)
+- [Hunter MCP setup for every client](https://hunter.io/mcp)
+- [Hunter MCP developer reference](https://hunter.io/api-documentation/v2#mcp)
 - [API keys](https://hunter.io/api-keys)
-- [API documentation](https://hunter.io/api-documentation)
-- [Support](https://hunter.io/support)
+- [Support](https://hunter.io/contact)
 - [Cursor plugin docs](https://cursor.com/docs/plugins)

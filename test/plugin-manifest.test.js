@@ -58,6 +58,7 @@ test("Cursor plugin manifest names hunter and declares the API key variable", ()
   assert.equal(manifest.logo, "assets/logo.svg")
   assert.equal(manifest.variables.required.includes("HUNTER_API_KEY"), true)
   assert.equal(manifest.variables.properties.HUNTER_API_KEY.type, "string")
+  assert.equal(manifest.repository, "https://github.com/hunter-io/cursor-plugin")
 })
 
 test("mcp.json points at mcp.hunter.io and interpolates X-API-Key", () => {
@@ -218,21 +219,31 @@ test("plugin files do not embed secrets", () => {
   }
 })
 
-test("README uses unified credits and lists hunter-prefixed skills", () => {
+test("README lists hunter-prefixed skills and the marketplace install", () => {
   const readme = readText("README.md")
   assert.match(readme, /50 credits a month/)
-  assert.match(readme, /verification 0\.5/)
-  assert.match(readme, /0\.5 credits \(valid, invalid, or accept_all\)/)
   assert.match(readme, /13 job-named skills/)
   assert.match(readme, /\/hunter:email-finder/)
   assert.match(readme, /`hunter-email-finder`/)
   assert.match(readme, /`hunter-discover`/)
   assert.match(readme, /`hunter-prospecting`/)
   assert.match(readme, /`hunter-email-verifier`/)
-  assert.match(readme, /0\.2 credits on current plans/)
   assert.match(readme, /Do not follow Domain Search with Email Finder/)
+  assert.match(readme, /https:\/\/cursor\.com\/marketplace\/cursor\/hunter/)
+  assert.match(readme, /"X-API-Key": "\$\{env:HUNTER_API_KEY\}"/)
   assert.doesNotMatch(readme, /1–2 credits each/)
   assert.doesNotMatch(readme, /More job-named skills/)
+  assert.doesNotMatch(readme, /until the marketplace listing exists/)
+  assert.doesNotMatch(readme, /HUN-\d+/)
+})
+
+test("README links are absolute and name no private monorepo path", () => {
+  const readme = readText("README.md")
+  for (const [, target] of readme.matchAll(/\]\(([^)]+)\)/g)) {
+    assert.match(target, /^https:\/\//)
+  }
+  assert.doesNotMatch(readme, /services\//)
+  assert.doesNotMatch(readme, /scripts\//)
 })
 
 test("logo asset exists", () => {

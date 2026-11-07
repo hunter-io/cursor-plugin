@@ -8,7 +8,7 @@
     "email": "support@hunter.io"
   },
   "homepage": "https://hunter.io",
-  "repository": "https://github.com/hunter-io/hunter",
+  "repository": "https://github.com/hunter-io/cursor-plugin",
   "license": "MIT",
   "keywords": ["hunter", "email", "leads", "b2b", "prospecting", "sales", "enrichment", "verification", "sequences", "outreach", "crm", "mcp"],
   "logo": "assets/logo.svg",
